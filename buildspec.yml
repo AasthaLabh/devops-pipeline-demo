@@ -1,0 +1,7 @@
+version: 0.2
+phases:
+  build:
+    commands:
+      - echo "Build trigger hua GitHub commit se..."
+      - echo "Running dummy tests..."
+      - exit 0
