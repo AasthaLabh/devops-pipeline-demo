@@ -262,3 +262,4 @@ def lambda_handler(event, context):
         'headers': {'Content-Type': 'text/html'},
         'body': HTML_PAGE
     }
+# testing live radar update
