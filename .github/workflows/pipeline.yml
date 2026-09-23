@@ -1,56 +1,264 @@
-name: DemoPipeline
+import json
+import boto3
+from boto3.dynamodb.conditions import Key
 
-on:
-  push:
-    branches: [ "main" ]
-  workflow_dispatch:
+dynamodb = boto3.resource('dynamodb', region_name='us-east-1')
+table = dynamodb.Table('PipelineStatusTable')
 
-jobs:
-  build-and-test:
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
+HTML_PAGE = """<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>DevOps Pipeline Radar</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&family=JetBrains+Mono:wght@500&display=swap" rel="stylesheet">
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body {
+            font-family: 'Inter', sans-serif;
+            background: radial-gradient(circle at 50% 0%, #1e1b4b 0%, #0f172a 75%);
+            color: #f1f5f9;
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+        }
+        .monitor-card {
+            background: rgba(30, 41, 59, 0.7);
+            backdrop-filter: blur(16px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 20px;
+            padding: 36px;
+            width: 100%;
+            max-width: 520px;
+            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
+        }
+        .header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 24px;
+        }
+        .tag {
+            font-size: 0.75rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.08em;
+            color: #818cf8;
+            background: rgba(99, 102, 241, 0.15);
+            padding: 4px 10px;
+            border-radius: 6px;
+            border: 1px solid rgba(99, 102, 241, 0.3);
+        }
+        .live-dot {
+            width: 8px;
+            height: 8px;
+            background-color: #22c55e;
+            border-radius: 50%;
+            box-shadow: 0 0 10px #22c55e;
+            animation: pulse 2s infinite;
+        }
+        @keyframes pulse {
+            0%, 100% { opacity: 1; transform: scale(1); }
+            50% { opacity: 0.4; transform: scale(0.85); }
+        }
+        .title {
+            font-size: 1.5rem;
+            font-weight: 700;
+            color: #ffffff;
+            margin-bottom: 6px;
+        }
+        .source-link {
+            font-size: 0.85rem;
+            color: #94a3b8;
+            margin-bottom: 28px;
+        }
+        .status-container {
+            background: rgba(15, 23, 42, 0.6);
+            border-radius: 12px;
+            padding: 24px;
+            text-align: center;
+            margin-bottom: 24px;
+            border: 1px solid rgba(255, 255, 255, 0.05);
+        }
+        .status-badge {
+            display: inline-block;
+            font-size: 1.15rem;
+            font-weight: 700;
+            letter-spacing: 0.06em;
+            padding: 10px 24px;
+            border-radius: 50px;
+            text-transform: uppercase;
+            transition: all 0.3s ease;
+        }
+        .badge-SUCCEEDED {
+            background: rgba(34, 197, 94, 0.15);
+            color: #4ade80;
+            border: 1px solid rgba(34, 197, 94, 0.4);
+            box-shadow: 0 0 20px rgba(34, 197, 94, 0.2);
+        }
+        .badge-FAILED {
+            background: rgba(239, 68, 68, 0.15);
+            color: #f87171;
+            border: 1px solid rgba(239, 68, 68, 0.4);
+            box-shadow: 0 0 20px rgba(239, 68, 68, 0.2);
+        }
+        .badge-STARTED {
+            background: rgba(234, 179, 8, 0.15);
+            color: #facc15;
+            border: 1px solid rgba(234, 179, 8, 0.4);
+            box-shadow: 0 0 20px rgba(234, 179, 8, 0.2);
+        }
+        .badge-UNKNOWN {
+            background: rgba(148, 163, 184, 0.15);
+            color: #94a3b8;
+            border: 1px solid rgba(148, 163, 184, 0.3);
+        }
+        .meta-list {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
+        .meta-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            font-size: 0.875rem;
+        }
+        .meta-key { color: #64748b; }
+        .meta-val {
+            font-family: 'JetBrains Mono', monospace;
+            color: #cbd5e1;
+            font-weight: 500;
+            max-width: 260px;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+        .footer {
+            margin-top: 24px;
+            text-align: center;
+            font-size: 0.75rem;
+            color: #475569;
+        }
+    </style>
+</head>
+<body>
+    <div class="monitor-card">
+        <div class="header">
+            <span class="tag">CI/CD Pipeline</span>
+            <div style="display: flex; align-items: center; gap: 8px;">
+                <span class="live-dot"></span>
+                <span style="font-size: 0.75rem; color: #64748b; font-weight: 600;">LIVE</span>
+            </div>
+        </div>
+        
+        <div class="title">DemoPipeline</div>
+        <div class="source-link">GitHub Actions ➔ AWS EventBridge ➔ DynamoDB</div>
 
-      - name: Configure AWS Credentials
-        uses: aws-actions/configure-aws-credentials@v4
-        with:
-          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
-          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          aws-session-token: ${{ secrets.AWS_SESSION_TOKEN }}
-          aws-region: us-east-1
+        <div class="status-container">
+            <span class="status-badge badge-UNKNOWN" id="status-badge">FETCHING...</span>
+        </div>
 
-      - name: Notify Pipeline Started
-        run: |
-          CLEAN_MSG=$(echo "${{ github.event.head_commit.message }}" | tr -d '"' | tr -d "'")
-          aws events put-events --entries '[{
-            "Source": "aws.codepipeline",
-            "DetailType": "CodePipeline Pipeline Execution State Change",
-            "Detail": "{\"pipeline\":\"DemoPipeline\",\"execution-id\":\"${{ github.run_id }}\",\"state\":\"STARTED\",\"commit_message\":\"'"$CLEAN_MSG"'\",\"author\":\"${{ github.actor }}\"}"
-          }]'
+        <div class="meta-list">
+            <div class="meta-item">
+                <span class="meta-key">Latest Commit</span>
+                <span class="meta-val" id="commit-msg">Loading...</span>
+            </div>
+            <div class="meta-item">
+                <span class="meta-key">Triggered By</span>
+                <span class="meta-val" id="author">Loading...</span>
+            </div>
+            <div class="meta-item">
+                <span class="meta-key">Execution Run ID</span>
+                <span class="meta-val" id="exec-id">Loading...</span>
+            </div>
+            <div class="meta-item">
+                <span class="meta-key">Last Event Time</span>
+                <span class="meta-val" id="timestamp">Loading...</span>
+            </div>
+            <div class="meta-item">
+                <span class="meta-key">Infrastructure</span>
+                <span class="meta-val">AWS Serverless</span>
+            </div>
+        </div>
 
-      - name: Execute Build & Test
-        run: |
-          echo "Simulating CI/CD build and automated tests..."
-          # exit 0 means PASS, exit 1 means FAIL
-          exit 0
+        <div class="footer">
+            Auto-polling DynamoDB every 3 seconds
+        </div>
+    </div>
 
-      - name: Notify Pipeline Succeeded
-        if: success()
-        run: |
-          CLEAN_MSG=$(echo "${{ github.event.head_commit.message }}" | tr -d '"' | tr -d "'")
-          aws events put-events --entries '[{
-            "Source": "aws.codepipeline",
-            "DetailType": "CodePipeline Pipeline Execution State Change",
-            "Detail": "{\"pipeline\":\"DemoPipeline\",\"execution-id\":\"${{ github.run_id }}\",\"state\":\"SUCCEEDED\",\"commit_message\":\"'"$CLEAN_MSG"'\",\"author\":\"${{ github.actor }}\"}"
-          }]'
+    <script>
+        async function fetchStatus() {
+            try {
+                const response = await fetch(window.location.pathname + '?action=status');
+                const data = await response.json();
+                
+                const badge = document.getElementById('status-badge');
+                badge.className = `status-badge badge-${data.status}`;
+                badge.innerText = data.status;
+                
+                document.getElementById('commit-msg').innerText = data.commit_msg || 'N/A';
+                document.getElementById('author').innerText = data.author ? '@' + data.author : 'N/A';
+                document.getElementById('exec-id').innerText = data.exec_id ? data.exec_id.substring(0, 18) + '...' : 'N/A';
+                document.getElementById('timestamp').innerText = data.timestamp || 'N/A';
+            } catch (err) {
+                console.error("Polling error:", err);
+            }
+        }
 
-      - name: Notify Pipeline Failed
-        if: failure()
-        run: |
-          CLEAN_MSG=$(echo "${{ github.event.head_commit.message }}" | tr -d '"' | tr -d "'")
-          aws events put-events --entries '[{
-            "Source": "aws.codepipeline",
-            "DetailType": "CodePipeline Pipeline Execution State Change",
-            "Detail": "{\"pipeline\":\"DemoPipeline\",\"execution-id\":\"${{ github.run_id }}\",\"state\":\"FAILED\",\"commit_message\":\"'"$CLEAN_MSG"'\",\"author\":\"${{ github.actor }}\"}"
-          }]'
+        fetchStatus();
+        setInterval(fetchStatus, 3000);
+    </script>
+</body>
+</html>"""
+
+def lambda_handler(event, context):
+    query_params = event.get('queryStringParameters') or {}
+    
+    if query_params.get('action') == 'status':
+        target_pipeline = "DemoPipeline"
+        status = "UNKNOWN"
+        exec_id = "N/A"
+        timestamp = "N/A"
+        commit_msg = "N/A"
+        author = "N/A"
+        
+        try:
+            res = table.query(
+                KeyConditionExpression=Key('PipelineName').eq(target_pipeline),
+                ScanIndexForward=False,
+                Limit=10
+            )
+            items = res.get('Items', [])
+            if items:
+                items.sort(key=lambda x: x.get('Timestamp', ''), reverse=True)
+                latest = items[0]
+                status = latest.get('State', 'UNKNOWN')
+                exec_id = latest.get('ExecutionId', 'N/A')
+                timestamp = latest.get('Timestamp', 'N/A')
+                commit_msg = latest.get('CommitMessage', 'N/A')
+                author = latest.get('Author', 'N/A')
+        except Exception as e:
+            status = "ERROR"
+            exec_id = str(e)
+            
+        return {
+            'statusCode': 200,
+            'headers': {'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*'},
+            'body': json.dumps({
+                'pipeline': target_pipeline,
+                'status': status,
+                'exec_id': exec_id,
+                'timestamp': timestamp,
+                'commit_msg': commit_msg,
+                'author': author
+            })
+        }
+    
+    return {
+        'statusCode': 200,
+        'headers': {'Content-Type': 'text/html'},
+        'body': HTML_PAGE
+    }
