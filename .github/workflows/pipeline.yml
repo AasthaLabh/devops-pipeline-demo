@@ -22,10 +22,11 @@ jobs:
 
       - name: Notify Pipeline Started
         run: |
+          CLEAN_MSG=$(echo "${{ github.event.head_commit.message }}" | tr -d '"' | tr -d "'")
           aws events put-events --entries '[{
             "Source": "aws.codepipeline",
             "DetailType": "CodePipeline Pipeline Execution State Change",
-            "Detail": "{\"pipeline\":\"DemoPipeline\",\"execution-id\":\"${{ github.run_id }}\",\"state\":\"STARTED\"}"
+            "Detail": "{\"pipeline\":\"DemoPipeline\",\"execution-id\":\"${{ github.run_id }}\",\"state\":\"STARTED\",\"commit_message\":\"'"$CLEAN_MSG"'\",\"author\":\"${{ github.actor }}\"}"
           }]'
 
       - name: Execute Build & Test
@@ -37,17 +38,19 @@ jobs:
       - name: Notify Pipeline Succeeded
         if: success()
         run: |
+          CLEAN_MSG=$(echo "${{ github.event.head_commit.message }}" | tr -d '"' | tr -d "'")
           aws events put-events --entries '[{
             "Source": "aws.codepipeline",
             "DetailType": "CodePipeline Pipeline Execution State Change",
-            "Detail": "{\"pipeline\":\"DemoPipeline\",\"execution-id\":\"${{ github.run_id }}\",\"state\":\"SUCCEEDED\"}"
+            "Detail": "{\"pipeline\":\"DemoPipeline\",\"execution-id\":\"${{ github.run_id }}\",\"state\":\"SUCCEEDED\",\"commit_message\":\"'"$CLEAN_MSG"'\",\"author\":\"${{ github.actor }}\"}"
           }]'
 
       - name: Notify Pipeline Failed
         if: failure()
         run: |
+          CLEAN_MSG=$(echo "${{ github.event.head_commit.message }}" | tr -d '"' | tr -d "'")
           aws events put-events --entries '[{
             "Source": "aws.codepipeline",
             "DetailType": "CodePipeline Pipeline Execution State Change",
-            "Detail": "{\"pipeline\":\"DemoPipeline\",\"execution-id\":\"${{ github.run_id }}\",\"state\":\"FAILED\"}"
+            "Detail": "{\"pipeline\":\"DemoPipeline\",\"execution-id\":\"${{ github.run_id }}\",\"state\":\"FAILED\",\"commit_message\":\"'"$CLEAN_MSG"'\",\"author\":\"${{ github.actor }}\"}"
           }]'
