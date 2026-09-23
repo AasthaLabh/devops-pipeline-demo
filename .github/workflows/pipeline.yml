@@ -1,0 +1,53 @@
+name: DemoPipeline
+
+on:
+  push:
+    branches: [ "main" ]
+  workflow_dispatch:
+
+jobs:
+  build-and-test:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Configure AWS Credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-session-token: ${{ secrets.AWS_SESSION_TOKEN }}
+          aws-region: us-east-1
+
+      - name: Notify Pipeline Started
+        run: |
+          aws events put-events --entries '[{
+            "Source": "aws.codepipeline",
+            "DetailType": "CodePipeline Pipeline Execution State Change",
+            "Detail": "{\"pipeline\":\"DemoPipeline\",\"execution-id\":\"${{ github.run_id }}\",\"state\":\"STARTED\"}"
+          }]'
+
+      - name: Execute Build & Test
+        run: |
+          echo "Simulating CI/CD build and automated tests..."
+          # exit 0 means PASS, exit 1 means FAIL
+          exit 0
+
+      - name: Notify Pipeline Succeeded
+        if: success()
+        run: |
+          aws events put-events --entries '[{
+            "Source": "aws.codepipeline",
+            "DetailType": "CodePipeline Pipeline Execution State Change",
+            "Detail": "{\"pipeline\":\"DemoPipeline\",\"execution-id\":\"${{ github.run_id }}\",\"state\":\"SUCCEEDED\"}"
+          }]'
+
+      - name: Notify Pipeline Failed
+        if: failure()
+        run: |
+          aws events put-events --entries '[{
+            "Source": "aws.codepipeline",
+            "DetailType": "CodePipeline Pipeline Execution State Change",
+            "Detail": "{\"pipeline\":\"DemoPipeline\",\"execution-id\":\"${{ github.run_id }}\",\"state\":\"FAILED\"}"
+          }]'
