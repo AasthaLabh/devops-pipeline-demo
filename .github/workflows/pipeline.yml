@@ -43,7 +43,7 @@ jobs:
         run: |
           echo "Simulating CI/CD build and automated tests..."
           # exit 0 means PASS, exit 1 means FAIL
-          exit 0
+          exit 1
 
       - name: Notify Pipeline Succeeded
         if: success()
