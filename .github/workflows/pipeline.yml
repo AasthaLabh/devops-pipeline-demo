@@ -12,75 +12,28 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Configure AWS Credentials
-        uses: aws-actions/configure-aws-credentials@v4
-        with:
-          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
-          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          aws-session-token: ${{ secrets.AWS_SESSION_TOKEN }}
-          aws-region: us-east-1
-
       - name: Notify Pipeline Started
         run: |
-          python3 -c "
-          import boto3, json, os
-          client = boto3.client('events', region_name='us-east-1')
-          entry = {
-              'Source': 'aws.codepipeline',
-              'DetailType': 'CodePipeline Pipeline Execution State Change',
-              'Detail': json.dumps({
-                  'pipeline': 'DemoPipeline',
-                  'execution-id': '${{ github.run_id }}',
-                  'state': 'STARTED',
-                  'commit_message': '${{ github.event.head_commit.message }}'[:40],
-                  'author': '${{ github.actor }}'
-              })
-          }
-          client.put_events(Entries=[entry])
-          "
+          curl -X POST https://zwd5dhzokcmnswk3ih3hxxa6240wqwmc.lambda-url.us-east-1.on.aws/ \
+            -H "Content-Type: application/json" \
+            -d '{"pipeline":"DemoPipeline","execution_id":"${{ github.run_id }}","state":"STARTED","commit_message":"${{ github.event.head_commit.message }}","author":"${{ github.actor }}"}'
 
       - name: Execute Build & Test
         run: |
-          echo "Simulating CI/CD build and automated tests..."
-          # exit 0 means PASS, exit 1 means FAIL
+          echo "Simulating CI/CD automated tests..."
+         
           exit 1
 
       - name: Notify Pipeline Succeeded
         if: success()
         run: |
-          python3 -c "
-          import boto3, json, os
-          client = boto3.client('events', region_name='us-east-1')
-          entry = {
-              'Source': 'aws.codepipeline',
-              'DetailType': 'CodePipeline Pipeline Execution State Change',
-              'Detail': json.dumps({
-                  'pipeline': 'DemoPipeline',
-                  'execution-id': '${{ github.run_id }}',
-                  'state': 'SUCCEEDED',
-                  'commit_message': '${{ github.event.head_commit.message }}'[:40],
-                  'author': '${{ github.actor }}'
-              })
-          }
-          client.put_events(Entries=[entry])
-          "
+          curl -X POST https://zwd5dhzokcmnswk3ih3hxxa6240wqwmc.lambda-url.us-east-1.on.aws/ \
+            -H "Content-Type: application/json" \
+            -d '{"pipeline":"DemoPipeline","execution_id":"${{ github.run_id }}","state":"SUCCEEDED","commit_message":"${{ github.event.head_commit.message }}","author":"${{ github.actor }}"}'
 
       - name: Notify Pipeline Failed
         if: failure()
         run: |
-          python3 -c "
-          import boto3, json, os
-          client = boto3.client('events', region_name='us-east-1')
-          entry = {
-              'Source': 'aws.codepipeline',
-              'DetailType': 'CodePipeline Pipeline Execution State Change',
-              'Detail': json.dumps({
-                  'pipeline': 'DemoPipeline',
-                  'execution-id': '${{ github.run_id }}',
-                  'state': 'FAILED',
-                  'commit_message': '${{ github.event.head_commit.message }}'[:40],
-                  'author': '${{ github.actor }}'
-              })
-          }
-          client.put_events(Entries=[entry])
-          "
+          curl -X POST https://zwd5dhzokcmnswk3ih3hxxa6240wqwmc.lambda-url.us-east-1.on.aws/ \
+            -H "Content-Type: application/json" \
+            -d '{"pipeline":"DemoPipeline","execution_id":"${{ github.run_id }}","state":"FAILED","commit_message":"${{ github.event.head_commit.message }}","author":"${{ github.actor }}"}'
