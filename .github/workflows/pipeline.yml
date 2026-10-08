@@ -22,7 +22,7 @@ jobs:
         run: |
           echo "Simulating CI/CD automated tests..."
          
-          exit 0
+          exit 1
 
       - name: Notify Pipeline Succeeded
         if: success()
